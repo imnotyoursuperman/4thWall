@@ -170,7 +170,7 @@ def rate_experience(update: Update, context: CallbackContext) -> None:
 
 def main() -> None:
     """Run the bot."""
-    updater = Updater(token='YOUR_TELEGRAM_BOT_TOKEN', use_context=True)
+    updater = Updater(token='TELEGRAM_BOT_TOKEN', use_context=True)
 
     # Define handlers
     dp = updater.dispatcher

@@ -1,61 +1,75 @@
 import os
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from openai_service import OpenAIService
-from dalle_service import DALLEService
+import logging
+from dotenv import load_dotenv
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+import language_tool_python
 
-# Load API keys from config
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-DALLE_API_KEY = os.getenv('DALLE_API_KEY')
+# Load environment variables
+load_dotenv()
 
-# Initialize OpenAI and DALL-E services
-openai_service = OpenAIService(api_key=OPENAI_API_KEY)
-dalle_service = DALLEService(api_key=DALLE_API_KEY)
+# Telegram Bot token from environment variable
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
-# Start command handler
+# Initialize LanguageTool for grammar corrections
+tool = language_tool_python.LanguageTool('en-US')
+
+# Command handlers
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Welcome to Novel Writer Bot! Use /edit to start writing or /generate_image to create an image.")
+    user_name = update.effective_user.first_name
+    welcome_message = f"Welcome, {user_name}! I'm the Novel Writer Bot. Send me a story or text to check grammar."
+    update.message.reply_text(welcome_message)
 
-# Edit command handler
-def edit(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Send me the text you want to edit.")
-    context.user_data['mode'] = 'edit'
+def process_text(update: Update, context: CallbackContext) -> None:
+    text = update.message.text
 
-# Message handler for text editing
-def handle_text(update: Update, context: CallbackContext) -> None:
-    if 'mode' in context.user_data and context.user_data['mode'] == 'edit':
-        text_to_edit = update.message.text
-        corrected_text = openai_service.correct_text(text_to_edit)
-        update.message.reply_text(f"Corrected text:\n{corrected_text}")
-        del context.user_data['mode']
+    # Perform grammar corrections using LanguageTool
+    corrected_text = tool.correct(text)
 
-# Generate image command handler
-def generate_image(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("Describe the image you want to generate.")
-    context.user_data['mode'] = 'generate_image'
+    update.message.reply_text(f"Corrected Text:\n{corrected_text}")
 
-# Message handler for image generation
-def handle_image_description(update: Update, context: CallbackContext) -> None:
-    if 'mode' in context.user_data and context.user_data['mode'] == 'generate_image':
-        image_description = update.message.text
-        image_url = dalle_service.generate_image(image_description)
-        update.message.reply_photo(photo=image_url)
-        del context.user_data['mode']
+def help_command(update: Update, context: CallbackContext) -> None:
+    commands_text = "Here are the available commands:\n\n" \
+                    "/start - Start the bot and receive a welcome message.\n" \
+                    "/help - Show this help message.\n\n" \
+                    "Simply send me a story or text message, and I'll check the grammar for you!"
+    
+    # Create inline keyboard with 'Close' button
+    keyboard = [[InlineKeyboardButton("Close", callback_data='close')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-def main():
-    # Set up bot and handlers
-    updater = Updater(token=os.getenv('TELEGRAM_BOT_TOKEN'), use_context=True)
+    update.message.reply_text(commands_text, reply_markup=reply_markup)
+
+def button_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+
+    if query.data == 'close':
+        query.message.delete()
+
+def main() -> None:
+    # Set up logging
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                        level=logging.INFO)
+
+    # Create the Updater and pass it the bot's token
+    updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
+
+    # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
 
-    # Register command and message handlers
+    # Register command handlers
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("edit", edit))
-    dispatcher.add_handler(CommandHandler("generate_image", generate_image))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_image_description))
+    dispatcher.add_handler(CommandHandler("help", help_command))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_text))
 
-    # Start the bot
+    # Register callback handler for inline keyboard button
+    dispatcher.add_handler(CallbackQueryHandler(button_callback))
+
+    # Start the Bot
     updater.start_polling()
+
+    # Run the bot until you send a signal to stop it
     updater.idle()
 
 if __name__ == '__main__':

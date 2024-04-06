@@ -1,7 +1,6 @@
 import logging
 import random
-import spacy
-import en_core_web_sm
+import spacy 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler, CallbackContext
 
@@ -10,7 +9,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 # Initialize spaCy with the English language model
 nlp = spacy.load('en_core_web_sm')
-nlp = en_core_web_sm.load()
 
 # Define genres with descriptions and thumbnails
 genres = {

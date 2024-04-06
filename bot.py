@@ -8,7 +8,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Conve
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 # Initialize spaCy with the English language model
-nlp = spacy.load('en_core_web_sm')
+nlp = spacy.load('en')
 
 # Define genres with descriptions and thumbnails
 genres = {

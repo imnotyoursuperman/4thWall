@@ -1,149 +1,197 @@
-import telebot
+import logging
+import random
 import spacy
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler, CallbackContext
+
+# Set up logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 # Initialize spaCy with the English language model
 nlp = spacy.load('en_core_web_sm')
 
-# Initialize your Telegram bot using the bot token
-bot = telebot.TeleBot('YOUR_TELEGRAM_BOT_TOKEN')
-
-# Define the available genres for novel writing along with their typical styles
+# Define genres with descriptions and thumbnails
 genres = {
-    "Fantasy": "Fantasy novels often feature magical worlds, mythical creatures, and epic quests.",
-    "Science Fiction": "Science fiction explores futuristic concepts, advanced technology, and space exploration.",
-    "Mystery": "Mystery novels involve solving crimes, uncovering secrets, and navigating suspenseful plot twists.",
-    "Romance": "Romance novels focus on love, relationships, and emotional connections between characters.",
-    "Thriller": "Thrillers are suspenseful and fast-paced, often involving danger, suspense, and plot twists.",
-    "Historical Fiction": "Historical fiction is set in the past and incorporates real historical events and settings.",
-    "Horror": "Horror novels aim to evoke fear and suspense, often featuring supernatural elements or psychological horror.",
-    "Adventure": "Adventure novels involve exciting journeys, exploration, and thrilling escapades.",
-    "Young Adult": "Young adult novels target teenage readers, exploring themes of identity, friendship, and coming-of-age.",
-    "Literary Fiction": "Literary fiction focuses on character development, themes, and introspective storytelling."
+    "Fantasy": {
+        "description": "Fantasy novels often feature magical worlds, mythical creatures, and epic quests.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?fantasy"
+    },
+    "Science Fiction": {
+        "description": "Science fiction explores futuristic concepts, advanced technology, and space exploration.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?scifi"
+    },
+    "Mystery": {
+        "description": "Mystery novels involve solving crimes, uncovering secrets, and navigating suspenseful plot twists.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?mystery"
+    },
+    "Romance": {
+        "description": "Romance novels focus on love, relationships, and emotional connections between characters.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?romance"
+    },
+    "Thriller": {
+        "description": "Thrillers are suspenseful and fast-paced, often involving danger, suspense, and plot twists.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?thriller"
+    },
+    "Historical Fiction": {
+        "description": "Historical fiction is set in the past and incorporates real historical events and settings.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?historical"
+    },
+    "Horror": {
+        "description": "Horror novels aim to evoke fear and suspense, often featuring supernatural elements or psychological horror.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?horror"
+    },
+    "Adventure": {
+        "description": "Adventure novels involve exciting journeys, exploration, and thrilling escapades.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?adventure"
+    },
+    "Young Adult": {
+        "description": "Young adult novels target teenage readers, exploring themes of identity, friendship, and coming-of-age.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?youngadult"
+    },
+    "Literary Fiction": {
+        "description": "Literary fiction focuses on character development, themes, and introspective storytelling.",
+        "thumbnail_url": "https://source.unsplash.com/featured/?literary"
+    },
+    # Add more genres if needed
 }
 
-# Handle /start command to send a welcome message and picture
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    # Define the welcome message
-    welcome_message = "Welcome to the Novel Writer Bot! Type /help for more info."
+# Conversation state constants
+SELECT_GENRE, EDIT_TEXT = range(2)
 
-    # Send the welcome message
-    bot.reply_to(message, welcome_message)
+# Command handlers
 
-    # Send an introductory picture along with the welcome message as the caption
-    photo_url = 'https://raw.githubusercontent.com/imnotyoursuperman/databasepics/main/IMG_20240406_224853_664.png'  # Replace with your image URL
-    bot.send_photo(message.chat.id, photo_url, caption=welcome_message)
+def start(update: Update, context: CallbackContext) -> None:
+    """Send a welcome message and prompt the user to select a genre."""
+    update.message.reply_text(
+        "Welcome to the Novel Writer Bot! Please choose a genre to get started.",
+        reply_markup=build_genre_keyboard(),
+    )
 
-# Handle /help command to display help options with inline keyboard
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(telebot.types.InlineKeyboardButton(text='Commands', callback_data='commands'))
-    bot.send_message(message.chat.id, "How may I help you?", reply_markup=markup)
+def help_command(update: Update, context: CallbackContext) -> None:
+    """Send a help message explaining available commands."""
+    update.message.reply_text(
+        "Available commands:\n"
+        "/start - Start the bot\n"
+        "/help - Show this help message\n"
+        "/cancel - Cancel the current operation\n"
+        "/edittext - Edit text based on genre preferences",
+    )
 
-# Handle inline keyboard callbacks
-@bot.callback_query_handler(func=lambda call: True)
-def handle_callback(call):
-    if call.data == 'commands':
-        response = "Available commands:\n"
-        response += "/start - Starts the bot\n"
-        response += "/help - Display this help message\n"
-        response += "/checkgrammar - Performs a grammar check\n"
-        response += "/checkspelling - Performs a spelling check\n"
-        response += "/edittext - Edits text according to the preference of the writer\n"
-        bot.send_message(call.message.chat.id, response)
-    elif call.data.startswith('genre_'):
-        selected_genre = call.data.split('_')[1]
-        if selected_genre in genres:
-            genre_description = genres[selected_genre]
-            bot.send_message(call.message.chat.id, f"Selected genre: {selected_genre}\n{genre_description}")
+def cancel(update: Update, context: CallbackContext) -> int:
+    """End the conversation."""
+    update.message.reply_text("Operation cancelled.")
+    return ConversationHandler.END
 
-            # Perform text editing based on the selected genre
-            bot.send_message(call.message.chat.id, "Please enter the text you want to edit:")
-            bot.register_next_step_handler(call.message, process_edit_text, selected_genre)
+# Inline keyboard builders
 
-# Handle /edittext command to edit text based on user preferences
-@bot.message_handler(commands=['edittext'])
-def edit_text(message):
-    # Create an inline keyboard with genre options
-    markup = telebot.types.InlineKeyboardMarkup()
-    for genre in genres:
-        markup.add(telebot.types.InlineKeyboardButton(text=genre, callback_data=f'genre_{genre}'))
+def build_genre_keyboard() -> InlineKeyboardMarkup:
+    """Build an inline keyboard with genre options."""
+    keyboard = [
+        [InlineKeyboardButton(genre, callback_data=genre)] for genre in genres
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-    bot.send_message(message.chat.id, "Choose a genre:", reply_markup=markup)
+def build_rating_keyboard() -> InlineKeyboardMarkup:
+    """Build an inline keyboard for rating."""
+    keyboard = [
+        [InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(1, 6)]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-# Handle all incoming messages
-@bot.message_handler(func=lambda message: True)
-def process_message(message):
-    text = message.text
+# Conversation handlers
+
+def select_genre(update: Update, context: CallbackContext) -> int:
+    """Prompt the user to enter text for editing based on the selected genre."""
+    query = update.callback_query
+    genre = query.data
+    query.answer()
+
+    context.user_data['selected_genre'] = genre
+    query.edit_message_text(
+        text=f"You've selected *{genre}*.\n\n{genres[genre]['description']}\n\nPlease enter the text you want to edit.",
+        parse_mode='Markdown',
+    )
+    return EDIT_TEXT
+
+def edit_text(update: Update, context: CallbackContext) -> int:
+    """Perform text editing based on the selected genre."""
+    text = update.message.text
+    genre = context.user_data.get('selected_genre')
     
-    # Process the text using spaCy
+    # Apply genre-specific text modifications
+    edited_text = apply_genre_specific_edits(text, genre)
+    update.message.reply_text(f"Edited text ({genre} style):\n{edited_text}")
+
+    # Prompt the user to rate the experience
+    update.message.reply_text("Rate your experience with this edit:", reply_markup=build_rating_keyboard())
+    return ConversationHandler.END
+
+# Genre-specific text editing
+
+def apply_genre_specific_edits(text: str, genre: str) -> str:
+    """Apply genre-specific text modifications based on the selected genre."""
     doc = nlp(text)
     
-    # Perform grammar corrections and word suggestions based on genre
-    corrections = []
-    for token in doc:
-        if token.text != token.text.lower() and not token.is_stop:
-            # Example: Implement custom logic to suggest corrections based on genre and premise
-            # For demonstration, let's just suggest lowercased versions of tokens
-            corrections.append(token.text.lower())
-    
-    if corrections:
-        response = f"Potential corrections: {' '.join(corrections)}"
-    else:
-        response = "No grammar corrections needed. Type /help for more options."
-    
-    bot.reply_to(message, response)
-
-# Handle text editing process based on selected genre
-def process_edit_text(message, selected_genre):
-    text = message.text
-    edited_text = apply_genre_specific_edits(text, selected_genre)
-    bot.send_message(message.chat.id, f"Edited text ({selected_genre} style):\n{edited_text}")
-
-    # Prompt the user to rate the experience with a star rating popup
-    send_rating_prompt(message)
-
-def apply_genre_specific_edits(text, selected_genre):
-    # Apply genre-specific text modifications based on the selected genre
-    edited_text = text.lower()  # Placeholder logic (e.g., convert text to lowercase)
-    
-    # Modify the edited_text based on the selected_genre
-    if selected_genre == "Fantasy":
-        # Apply fantasy genre-specific modifications
+    # Placeholder logic for text editing based on genre
+    if genre == "Fantasy":
         # Example: Replace "magic" with "sorcery"
-        edited_text = edited_text.replace("magic", "sorcery")
-    elif selected_genre == "Science Fiction":
-        # Apply science fiction genre-specific modifications
+        edited_text = text.replace("magic", "sorcery")
+    elif genre == "Science Fiction":
         # Example: Replace "space" with "galaxy"
-        edited_text = edited_text.replace("space", "galaxy")
+        edited_text = text.replace("space", "galaxy")
+    elif genre == "Mystery":
+        # Example: Add mysterious elements or keywords
+        edited_text = text + " (Mysterious additions)"
     # Add more genre-specific modifications as needed...
+    else:
+        edited_text = text  # Default to original text if genre not recognized
 
     return edited_text
 
-# Send a star rating prompt (inline keyboard) to gather user feedback
-def send_rating_prompt(message):
-    markup = telebot.types.InlineKeyboardMarkup()
-    for i in range(1, 6):  # Create buttons for ratings from 1 to 5 stars
-        markup.add(telebot.types.InlineKeyboardButton(text=f'{i} ⭐', callback_data=f'rating_{i}'))
+# Rating and notification handlers
 
-    bot.send_message(message.chat.id, "Rate your experience:", reply_markup=markup)
+def rate_experience(update: Update, context: CallbackContext) -> None:
+    """Handle user rating and send notification."""
+    query = update.callback_query
+    rating = query.data
+    user = update.effective_user
+    username = user.username if user.username else f"User ID: {user.id}"
 
-# Handle callback queries for rating responses
-@bot.callback_query_handler(func=lambda call: call.data.startswith('rating_'))
-def handle_rating_response(call):
-    rating = int(call.data.split('_')[1])
-    bot.send_message(call.message.chat.id, f"Thank you for rating your experience: {rating} ⭐")
+    # Send rating to group or save it to a database
+    context.bot.send_message(
+        chat_id='YOUR_GROUP_CHAT_ID',  # Replace with your group chat ID
+        text=f"New rating received!\nUser: [{username}](tg://user?id={user.id})\nRating: {rating} ⭐"
+    )
 
-# Main function to run the bot
-def main():
-    try:
-        print("Novel Bot is running. Press Ctrl+C to exit.")
-        bot.polling()
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        # Add custom error handling or logging as needed
+    query.answer()
+    query.edit_message_text(f"Thank you for rating your experience: {rating} ⭐")
 
-# Run the bot
-if __name__ == "__main__":
+# Main function
+
+def main() -> None:
+    """Run the bot."""
+    updater = Updater(token='YOUR_TELEGRAM_BOT_TOKEN', use_context=True)
+
+    # Define handlers
+    dp = updater.dispatcher
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(select_genre)],
+        states={
+            EDIT_TEXT: [MessageHandler(Filters.text & ~Filters.command, edit_text)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+
+    # Register command handlers
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("help", help_command))
+    dp.add_handler(CommandHandler("edittext", start))  # Redirect /edittext to /start to select genre
+    dp.add_handler(conv_handler)
+    dp.add_handler(CallbackQueryHandler(rate_experience))
+
+    # Start the Bot
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
     main()

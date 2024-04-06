@@ -6,7 +6,7 @@ class OpenAIService:
 
     def correct_text(self, text):
         response = openai.Completion.create(
-            engine="gpt-3.5-turbo",
+            engine="text-davinci-002",
             prompt=text,
             max_tokens=50
         )

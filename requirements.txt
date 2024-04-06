@@ -1,9 +1,11 @@
 aiohttp
 requests
-python-telegram-bot
 pyrate-limiter
 apscheduler
 pyrogram
 tgcrypto 
-python-dotenv
 cachetools 
+python-telegram-bot==13.7
+requests==2.26.0
+openai==0.11.2
+python-dotenv==0.19.0

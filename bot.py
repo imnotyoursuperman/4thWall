@@ -164,11 +164,6 @@ async def inline_query_handler(_, inline_query):
 
     await inline_query.answer(results)
 
-# Handle errors and exceptions
-@app.on_error()
-async def error_handler(_, error):
-    logger.error(f"An error occurred: {error}")
-
 # Start the Pyrogram client
 async def main():
     try:

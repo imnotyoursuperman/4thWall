@@ -1,7 +1,7 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from telegraph import Telegraph
-import uuid
+import time
 
 # Initialize your Pyrogram client with your credentials
 app = Client(
@@ -127,14 +127,16 @@ async def create_telegraph_page(chat_id):
             f"{chapters}"
         )
 
-        response = telegraph.create_page(
-            title=title,
-            author_name=author,
-            html_content=page_content
-        )
-
-        telegraph_url = response['url']
-        published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
+        try:
+            response = telegraph.create_page(
+                title=title,
+                author_name=author,
+                html_content=page_content
+            )
+            telegraph_url = response['url']
+            published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
+        except Exception as e:
+            print(f"Error creating Telegraph page: {e}")
 
 @app.on_inline_query()
 async def inline_query_handler(_, inline_query):
@@ -157,4 +159,19 @@ async def inline_query_handler(_, inline_query):
     await inline_query.answer(results)
 
 # Start the Pyrogram client
-app.run()
+async def main():
+    try:
+        await app.start()
+    except Exception as e:
+        print(f"Error starting the bot: {e}")
+        exit()
+
+    # Synchronize client time with Telegram servers
+    await app.set_parse_mode("html")
+    await app.send_message(owner_id, "Bot is up and running!")  # Optional: Send a notification to the owner
+
+    await app.idle()
+
+if __name__ == "__main__":
+    # Run the main coroutine
+    app.loop.run_until_complete(main())

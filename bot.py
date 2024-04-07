@@ -7,7 +7,7 @@ from telegraph import Telegraph
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize your Pyrogram client with your credentials
+# Initialize Pyrogram client
 app = Client(
     "my_bot",
     api_id=21927988,
@@ -32,10 +32,8 @@ published_stories = {}
 # Command handlers using message filters
 @app.on_message(filters.command("start"))
 async def start_command(_, message: Message):
-    chat_id = message.chat.id
     user_id = message.from_user.id
 
-    # Check if the user is the owner (based on user ID)
     if user_id == owner_id:
         await message.reply_photo(
             photo=welcome_photo_url,
@@ -61,7 +59,7 @@ async def callback_handler(_, callback_query):
 
     if data == "new_story":
         stories[chat_id] = {'title': None, 'author': None, 'cover_art': None,
-                            'genre': None, 'tags': [], 'summary': None, 'chapters': [], 'published': False}
+                            'genre': None, 'tags': [], 'summary': None, 'chapters': []}
         await callback_query.answer("Let's create a new story! Please provide the following details:\n"
                                     "1. Title of the story\n"
                                     "2. Author's name\n"
@@ -96,13 +94,28 @@ async def handle_text_message(_, message: Message):
         elif story['summary'] is None:
             story['summary'] = message.text
             await message.reply_text("Summary set successfully! You can now start writing the first chapter.")
-        elif len(story['chapters']) > 0:
-            # Prompt to confirm before adding a new chapter
-            confirmation_message = "Would you like to finalize the current chapter?"
-            await message.reply_text(confirmation_message)
 
-@app.on_message(filters.command("finalizechapter"))
-async def finalize_chapter_command(_, message: Message):
+@app.on_message(filters.command("addchapter"))
+async def add_chapter_command(_, message: Message):
+    chat_id = message.chat.id
+
+    if chat_id in stories and stories[chat_id]['summary'] is not None:
+        story = stories[chat_id]
+        await message.reply_text("Please type the next chapter of your story.")
+    else:
+        await message.reply_text("Please create a new story first and complete the details.")
+
+@app.on_message(filters.text & ~filters.command("start") & ~filters.command("addchapter"))
+async def handle_chapter_message(_, message: Message):
+    chat_id = message.chat.id
+
+    if chat_id in stories and stories[chat_id]['summary'] is not None:
+        story = stories[chat_id]
+        story['chapters'].append(message.text)
+        await message.reply_text("Chapter added successfully!")
+
+@app.on_message(filters.command("publish"))
+async def publish_story_command(_, message: Message):
     chat_id = message.chat.id
 
     if chat_id in stories and len(stories[chat_id]['chapters']) > 0:
@@ -164,17 +177,28 @@ async def inline_query_handler(_, inline_query):
 
     await inline_query.answer(results)
 
+@app.on_command("help")
+async def help_command(_, message: Message):
+    help_text = "Welcome to Story Bot!\n\n"
+    help_text += "Available commands:\n"
+    help_text += "/start - Start the bot and display welcome message\n"
+    help_text += "/help - Display available commands and explanations\n"
+    help_text += "/about - Explain the usage of the bot and provide tips and tricks\n"
+    help_text += "/addchapter - Add a new chapter to your story\n"
+    help_text += "/publish - Publish your story\n"
+    await message.reply_text(help_text)
+
+@app.on_command("about")
+async def about_command(_, message: Message):
+    about_text = "Story Bot is a Telegram bot that allows you to create, publish, and read stories.\n\n"
+    about_text += "To start creating a story, use /start and follow the instructions.\n"
+    about_text += "Once your story is ready, use /publish to publish it and share it with others.\n"
+    about_text += "You can also use /help to view all available commands and their usage."
+    await message.reply_text(about_text)
+
 # Start the Pyrogram client
-async def main():
-    try:
-        await app.start()
-        logger.info("Bot started successfully!")
-    except Exception as e:
-        logger.error(f"Error starting the bot: {e}")
-        exit()
-
-    await app.run()
-
 if __name__ == "__main__":
-    # Run the main coroutine
-    app.loop.run_until_complete(main())
+    try:
+        app.run()
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

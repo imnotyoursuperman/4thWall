@@ -173,7 +173,7 @@ async def main():
         logger.error(f"Error starting the bot: {e}")
         exit()
 
-    await app.idle()
+    await app.run()
 
 if __name__ == "__main__":
     # Run the main coroutine

@@ -1,197 +1,207 @@
-import logging
-import random
-import spacy 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler, CallbackContext
+from pyrogram import Client, filters
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from telegraph import Telegraph
+import uuid
 
-# Set up logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# Initialize your Pyrogram client with your credentials
+app = Client(
+    "my_bot",
+    api_id=YOUR_API_ID,
+    api_hash="YOUR_API_HASH",
+    bot_token="YOUR_BOT_TOKEN"
+)
 
-# Initialize spaCy with the English language model
-nlp = spacy.load('en_core_web_sm')
+# Owner's user ID (Replace with your Telegram user ID)
+owner_id = 123456789  # Replace with your Telegram user ID
 
-# Define genres with descriptions and thumbnails
-genres = {
-    "Fantasy": {
-        "description": "Fantasy novels often feature magical worlds, mythical creatures, and epic quests.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?fantasy"
-    },
-    "Science Fiction": {
-        "description": "Science fiction explores futuristic concepts, advanced technology, and space exploration.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?scifi"
-    },
-    "Mystery": {
-        "description": "Mystery novels involve solving crimes, uncovering secrets, and navigating suspenseful plot twists.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?mystery"
-    },
-    "Romance": {
-        "description": "Romance novels focus on love, relationships, and emotional connections between characters.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?romance"
-    },
-    "Thriller": {
-        "description": "Thrillers are suspenseful and fast-paced, often involving danger, suspense, and plot twists.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?thriller"
-    },
-    "Historical Fiction": {
-        "description": "Historical fiction is set in the past and incorporates real historical events and settings.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?historical"
-    },
-    "Horror": {
-        "description": "Horror novels aim to evoke fear and suspense, often featuring supernatural elements or psychological horror.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?horror"
-    },
-    "Adventure": {
-        "description": "Adventure novels involve exciting journeys, exploration, and thrilling escapades.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?adventure"
-    },
-    "Young Adult": {
-        "description": "Young adult novels target teenage readers, exploring themes of identity, friendship, and coming-of-age.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?youngadult"
-    },
-    "Literary Fiction": {
-        "description": "Literary fiction focuses on character development, themes, and introspective storytelling.",
-        "thumbnail_url": "https://source.unsplash.com/featured/?literary"
-    },
-    # Add more genres if needed
-}
+# Welcome message photo URL
+welcome_photo_url = "https://example.com/welcome_photo.jpg"  # Replace with your welcome photo URL
 
-# Conversation state constants
-SELECT_GENRE, EDIT_TEXT = range(2)
+# Initialize Telegraph
+telegraph = Telegraph()
+telegraph.create_account(short_name="my_bot")
+
+# Dictionary to store story details
+stories = {}
+published_stories = {}
 
 # Command handlers
+@app.on_message(filters.command("start"))
+async def start_command(_, message: Message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
 
-def start(update: Update, context: CallbackContext) -> None:
-    """Send a welcome message and prompt the user to select a genre."""
-    update.message.reply_text(
-        "Welcome to the Novel Writer Bot! Please choose a genre to get started.",
-        reply_markup=build_genre_keyboard(),
-    )
-
-def help_command(update: Update, context: CallbackContext) -> None:
-    """Send a help message explaining available commands."""
-    update.message.reply_text(
-        "Available commands:\n"
-        "/start - Start the bot\n"
-        "/help - Show this help message\n"
-        "/cancel - Cancel the current operation\n"
-        "/edittext - Edit text based on genre preferences",
-    )
-
-def cancel(update: Update, context: CallbackContext) -> int:
-    """End the conversation."""
-    update.message.reply_text("Operation cancelled.")
-    return ConversationHandler.END
-
-# Inline keyboard builders
-
-def build_genre_keyboard() -> InlineKeyboardMarkup:
-    """Build an inline keyboard with genre options."""
-    keyboard = [
-        [InlineKeyboardButton(genre, callback_data=genre)] for genre in genres
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-def build_rating_keyboard() -> InlineKeyboardMarkup:
-    """Build an inline keyboard for rating."""
-    keyboard = [
-        [InlineKeyboardButton(str(i), callback_data=str(i)) for i in range(1, 6)]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-# Conversation handlers
-
-def select_genre(update: Update, context: CallbackContext) -> int:
-    """Prompt the user to enter text for editing based on the selected genre."""
-    query = update.callback_query
-    genre = query.data
-    query.answer()
-
-    context.user_data['selected_genre'] = genre
-    query.edit_message_text(
-        text=f"You've selected *{genre}*.\n\n{genres[genre]['description']}\n\nPlease enter the text you want to edit.",
-        parse_mode='Markdown',
-    )
-    return EDIT_TEXT
-
-def edit_text(update: Update, context: CallbackContext) -> int:
-    """Perform text editing based on the selected genre."""
-    text = update.message.text
-    genre = context.user_data.get('selected_genre')
-    
-    # Apply genre-specific text modifications
-    edited_text = apply_genre_specific_edits(text, genre)
-    update.message.reply_text(f"Edited text ({genre} style):\n{edited_text}")
-
-    # Prompt the user to rate the experience
-    update.message.reply_text("Rate your experience with this edit:", reply_markup=build_rating_keyboard())
-    return ConversationHandler.END
-
-# Genre-specific text editing
-
-def apply_genre_specific_edits(text: str, genre: str) -> str:
-    """Apply genre-specific text modifications based on the selected genre."""
-    doc = nlp(text)
-    
-    # Placeholder logic for text editing based on genre
-    if genre == "Fantasy":
-        # Example: Replace "magic" with "sorcery"
-        edited_text = text.replace("magic", "sorcery")
-    elif genre == "Science Fiction":
-        # Example: Replace "space" with "galaxy"
-        edited_text = text.replace("space", "galaxy")
-    elif genre == "Mystery":
-        # Example: Add mysterious elements or keywords
-        edited_text = text + " (Mysterious additions)"
-    # Add more genre-specific modifications as needed...
+    # Check if the user is the owner (based on user ID)
+    if user_id == owner_id:
+        await message.reply_photo(
+            photo=welcome_photo_url,
+            caption="Welcome back, dear owner! How can I assist you today?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Create a new story", callback_data="new_story")]
+            ])
+        )
     else:
-        edited_text = text  # Default to original text if genre not recognized
+        await message.reply_photo(
+            photo=welcome_photo_url,
+            caption="Welcome to the Story Bot! Let's create and read amazing stories together.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Start a new story", callback_data="new_story")],
+                [InlineKeyboardButton("Read published stories", switch_inline_query_current_chat="")]
+            ])
+        )
 
-    return edited_text
+@app.on_callback_query(filters.regex("^new_story$"))
+async def new_story_callback(_, callback_query):
+    await callback_query.answer()
+    await callback_query.message.reply_text("Use /newstory to start a new story.")
 
-# Rating and notification handlers
+@app.on_message(filters.command("newstory"))
+async def new_story_command(_, message: Message):
+    chat_id = message.chat.id
+    stories[chat_id] = {'title': None, 'author': None, 'cover_art': None,
+                        'genre': None, 'tags': [], 'summary': None, 'chapters': [], 'published': False}
 
-def rate_experience(update: Update, context: CallbackContext) -> None:
-    """Handle user rating and send notification."""
-    query = update.callback_query
-    rating = query.data
-    user = update.effective_user
-    username = user.username if user.username else f"User ID: {user.id}"
+    await message.reply_text("Let's create a new story! Please provide the following details:\n"
+                             "1. Title of the story\n"
+                             "2. Author's name\n"
+                             "3. Cover art URL\n"
+                             "4. Genre\n"
+                             "5. Tags (comma-separated)\n"
+                             "6. Summary")
 
-    # Send rating to group or save it to a database
-    context.bot.send_message(
-        chat_id='YOUR_GROUP_CHAT_ID',  # Replace with your group chat ID
-        text=f"New rating received!\nUser: [{username}](tg://user?id={user.id})\nRating: {rating} ⭐"
+@app.on_message(filters.text & ~filters.command("start") & ~filters.command("newstory"))
+async def handle_text_message(_, message: Message):
+    chat_id = message.chat.id
+
+    if chat_id in stories:
+        story = stories[chat_id]
+
+        if story['title'] is None:
+            story['title'] = message.text
+            await message.reply_text("Title set successfully! Now, please provide the author's name.")
+        elif story['author'] is None:
+            story['author'] = message.text
+            await message.reply_text("Author's name set successfully! Please provide the cover art URL.")
+        elif story['cover_art'] is None:
+            story['cover_art'] = message.text
+            await message.reply_text("Cover art URL set successfully! Please specify the genre of the story.")
+        elif story['genre'] is None:
+            story['genre'] = message.text
+            await message.reply_text("Genre set successfully! Please enter the tags (comma-separated).")
+        elif not story['tags']:
+            tags = [tag.strip() for tag in message.text.split(',')]
+            story['tags'] = tags
+            await message.reply_text("Tags set successfully! Please provide a brief summary of your story.")
+        elif story['summary'] is None:
+            story['summary'] = message.text
+            await message.reply_text("Summary set successfully! You can now start writing the first chapter.")
+        elif len(story['chapters']) > 0:
+            # Prompt to confirm before adding a new chapter
+            confirmation_message = "Would you like to finalize the current chapter?"
+            await message.reply_text(confirmation_message)
+
+@app.on_message(filters.command("finalizechapter"))
+async def finalize_chapter_command(_, message: Message):
+    chat_id = message.chat.id
+
+    if chat_id in stories and len(stories[chat_id]['chapters']) > 0:
+        story = stories[chat_id]
+        story['published'] = True  # Mark story as published
+        await message.reply_text("Story published successfully!")
+        await create_telegraph_page(chat_id)
+
+async def create_telegraph_page(chat_id):
+    if chat_id in stories and stories[chat_id]['published']:
+        story = stories[chat_id]
+        title = story['title']
+        author = story['author']
+        cover_art = story['cover_art']
+        genre = story['genre']
+        tags = ', '.join(story['tags'])
+        summary = story['summary']
+        chapters = "\n\n".join(f"<p>{chapter}</p>" for chapter in story['chapters'])
+
+        # Create a Telegraph page
+        page_content = (
+            f"<h3>{title}</h3>"
+            f"<p><i>by {author}</i></p>"
+            f"<p><b>Genre:</b> {genre}</p>"
+            f"<p><b>Tags:</b> {tags}</p>"
+            f"<p><b>Summary:</b> {summary}</p>"
+            f"<img src='{cover_art}' />"
+            f"{chapters}"
+        )
+
+        response = telegraph.create_page(
+            title=title,
+            author_name=author,
+            html_content=page_content
+        )
+
+        telegraph_url = response['url']
+        published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
+
+@app.on_command("readstory")
+async def read_story_command(_, message: Message):
+    chat_id = message.chat.id
+
+    if chat_id in published_stories:
+        story = published_stories[chat_id]
+        await message.reply_text(f"Read the story '{story['title']}' by {story['author']} on Telegraph: {story['telegraph_url']}")
+    else:
+        await message.reply_text("No published story found.")
+
+@app.on_command("help")
+async def help_command(_, message: Message):
+    help_text = (
+        "Welcome to the Story Bot!\n\n"
+        "Here are the available commands and what they do:\n"
+        "/start - Start the bot and receive a welcome message.\n"
+        "/newstory - Start creating a new story.\n"
+        "/finalizechapter - Finalize and publish your story.\n"
+        "/readstory - Read the published story.\n"
+        "/help - Display this help message with command explanations.\n"
+        "/about - Learn more about the bot, its uses, and tips."
     )
+    await message.reply_text(help_text)
 
-    query.answer()
-    query.edit_message_text(f"Thank you for rating your experience: {rating} ⭐")
-
-# Main function
-
-def main() -> None:
-    """Run the bot."""
-    updater = Updater(token='TELEGRAM_BOT_TOKEN', use_context=True)
-
-    # Define handlers
-    dp = updater.dispatcher
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(select_genre)],
-        states={
-            EDIT_TEXT: [MessageHandler(Filters.text & ~Filters.command, edit_text)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
+@app.on_command("about")
+async def about_command(_, message: Message):
+    about_text = (
+        "Welcome to the Story Bot!\n\n"
+        "This bot allows you to create, publish, and read stories right within Telegram.\n\n"
+        "Here's how you can use this bot:\n"
+        "- Use /newstory to start a new story. Follow the prompts to add details and chapters.\n"
+        "- Use /finalizechapter to finalize and publish your story after adding all chapters.\n"
+        "- Use /readstory to view published stories or share them with others.\n\n"
+        "Tips and Tricks:\n"
+        "- Add cover art, title, author name, genre, tags, and a summary to make your story attractive.\n"
+        "- Use proper formatting for chapters to enhance readability.\n"
+        "- Share published stories with friends using inline queries or generated links.\n"
+        "- Have fun exploring different genres and writing styles!\n\n"
+        "Enjoy creating and sharing stories with the Story Bot!"
     )
+    await message.reply_text(about_text)
 
-    # Register command handlers
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("help", help_command))
-    dp.add_handler(CommandHandler("edittext", start))  # Redirect /edittext to /start to select genre
-    dp.add_handler(conv_handler)
-    dp.add_handler(CallbackQueryHandler(rate_experience))
+@app.on_inline_query()
+async def inline_query_handler(_, inline_query):
+    results = []
 
-    # Start the Bot
-    updater.start_polling()
-    updater.idle()
+    for chat_id, story in published_stories.items():
+        if story['telegraph_url']:
+            title = story['title']
+            author = story['author']
+            description = f"by {author}"
+            input_content = f"Read the story on Telegraph: {story['telegraph_url']}"
+            results.append(
+                InlineQueryResultArticle(
+                    title=title,
+                    description=description,
+                    input_message_content=InputTextMessageContent(input_content)
+                )
+            )
 
-if __name__ == '__main__':
-    main()
+    await inline_query.answer(results)
+
+# Start the Pyrogram client
+app.run()

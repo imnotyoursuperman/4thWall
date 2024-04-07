@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from telegraph import Telegraph
 import uuid
+
 # Initialize your Pyrogram client with your credentials
 app = Client(
     "my_bot",
@@ -24,7 +25,7 @@ telegraph.create_account(short_name="my_bot")
 stories = {}
 published_stories = {}
 
-# Command handlers
+# Command handlers using message filters
 @app.on_message(filters.command("start"))
 async def start_command(_, message: Message):
     chat_id = message.chat.id
@@ -48,11 +49,6 @@ async def start_command(_, message: Message):
                 [InlineKeyboardButton("Read published stories", switch_inline_query_current_chat="")]
             ])
         )
-
-@app.on_callback_query(filters.regex("^new_story$"))
-async def new_story_callback(_, callback_query):
-    await callback_query.answer()
-    await callback_query.message.reply_text("Use /newstory to start a new story.")
 
 @app.on_message(filters.command("newstory"))
 async def new_story_command(_, message: Message):
@@ -139,48 +135,6 @@ async def create_telegraph_page(chat_id):
 
         telegraph_url = response['url']
         published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
-
-@app.on_command("readstory")
-async def read_story_command(_, message: Message):
-    chat_id = message.chat.id
-
-    if chat_id in published_stories:
-        story = published_stories[chat_id]
-        await message.reply_text(f"Read the story '{story['title']}' by {story['author']} on Telegraph: {story['telegraph_url']}")
-    else:
-        await message.reply_text("No published story found.")
-
-@app.on_command("help")
-async def help_command(_, message: Message):
-    help_text = (
-        "Welcome to the Story Bot!\n\n"
-        "Here are the available commands and what they do:\n"
-        "/start - Start the bot and receive a welcome message.\n"
-        "/newstory - Start creating a new story.\n"
-        "/finalizechapter - Finalize and publish your story.\n"
-        "/readstory - Read the published story.\n"
-        "/help - Display this help message with command explanations.\n"
-        "/about - Learn more about the bot, its uses, and tips."
-    )
-    await message.reply_text(help_text)
-
-@app.on_command("about")
-async def about_command(_, message: Message):
-    about_text = (
-        "Welcome to the Story Bot!\n\n"
-        "This bot allows you to create, publish, and read stories right within Telegram.\n\n"
-        "Here's how you can use this bot:\n"
-        "- Use /newstory to start a new story. Follow the prompts to add details and chapters.\n"
-        "- Use /finalizechapter to finalize and publish your story after adding all chapters.\n"
-        "- Use /readstory to view published stories or share them with others.\n\n"
-        "Tips and Tricks:\n"
-        "- Add cover art, title, author name, genre, tags, and a summary to make your story attractive.\n"
-        "- Use proper formatting for chapters to enhance readability.\n"
-        "- Share published stories with friends using inline queries or generated links.\n"
-        "- Have fun exploring different genres and writing styles!\n\n"
-        "Enjoy creating and sharing stories with the Story Bot!"
-    )
-    await message.reply_text(about_text)
 
 @app.on_inline_query()
 async def inline_query_handler(_, inline_query):

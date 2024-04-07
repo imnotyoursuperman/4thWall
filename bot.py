@@ -154,6 +154,7 @@ async def create_telegraph_page(chat_id):
             )
             telegraph_url = response['url']
             published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
+            await app.send_message(chat_id, f"Your story has been published! Read it here: {telegraph_url}")
         except Exception as e:
             logger.error(f"Error creating Telegraph page: {e}")
 
@@ -176,25 +177,6 @@ async def inline_query_handler(_, inline_query):
             )
 
     await inline_query.answer(results)
-
-@app.on_command("help")
-async def help_command(_, message: Message):
-    help_text = "Welcome to Story Bot!\n\n"
-    help_text += "Available commands:\n"
-    help_text += "/start - Start the bot and display welcome message\n"
-    help_text += "/help - Display available commands and explanations\n"
-    help_text += "/about - Explain the usage of the bot and provide tips and tricks\n"
-    help_text += "/addchapter - Add a new chapter to your story\n"
-    help_text += "/publish - Publish your story\n"
-    await message.reply_text(help_text)
-
-@app.on_command("about")
-async def about_command(_, message: Message):
-    about_text = "Story Bot is a Telegram bot that allows you to create, publish, and read stories.\n\n"
-    about_text += "To start creating a story, use /start and follow the instructions.\n"
-    about_text += "Once your story is ready, use /publish to publish it and share it with others.\n"
-    about_text += "You can also use /help to view all available commands and their usage."
-    await message.reply_text(about_text)
 
 # Start the Pyrogram client
 if __name__ == "__main__":

@@ -5,9 +5,9 @@ import uuid
 # Initialize your Pyrogram client with your credentials
 app = Client(
     "my_bot",
-    api_id=API_ID,
-    api_hash="API_HASH",
-    bot_token="BOT_TOKEN"
+    api_id=21927988,
+    api_hash="e18f720acdff1e5b0ec80616aecd8a5a",
+    bot_token="6878710104:AAGxeHBjlk8UjZ_cPbaW_74aySweKLDZl4w"
 )
 
 # Owner's user ID (Replace with your Telegram user ID)

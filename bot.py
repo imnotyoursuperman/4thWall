@@ -1,7 +1,11 @@
+import logging
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle, InputTextMessageContent
 from telegraph import Telegraph
-import uuid
+
+# Initialize logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize your Pyrogram client with your credentials
 app = Client(
@@ -50,21 +54,23 @@ async def start_command(_, message: Message):
             ])
         )
 
-@app.on_message(filters.command("newstory"))
-async def new_story_command(_, message: Message):
-    chat_id = message.chat.id
-    stories[chat_id] = {'title': None, 'author': None, 'cover_art': None,
-                        'genre': None, 'tags': [], 'summary': None, 'chapters': [], 'published': False}
+@app.on_callback_query()
+async def callback_handler(_, callback_query):
+    chat_id = callback_query.message.chat.id
+    data = callback_query.data
 
-    await message.reply_text("Let's create a new story! Please provide the following details:\n"
-                             "1. Title of the story\n"
-                             "2. Author's name\n"
-                             "3. Cover art URL\n"
-                             "4. Genre\n"
-                             "5. Tags (comma-separated)\n"
-                             "6. Summary")
+    if data == "new_story":
+        stories[chat_id] = {'title': None, 'author': None, 'cover_art': None,
+                            'genre': None, 'tags': [], 'summary': None, 'chapters': [], 'published': False}
+        await callback_query.answer("Let's create a new story! Please provide the following details:\n"
+                                    "1. Title of the story\n"
+                                    "2. Author's name\n"
+                                    "3. Cover art URL\n"
+                                    "4. Genre\n"
+                                    "5. Tags (comma-separated)\n"
+                                    "6. Summary")
 
-@app.on_message(filters.text & ~filters.command("start") & ~filters.command("newstory"))
+@app.on_message(filters.text & ~filters.command("start"))
 async def handle_text_message(_, message: Message):
     chat_id = message.chat.id
 
@@ -127,14 +133,16 @@ async def create_telegraph_page(chat_id):
             f"{chapters}"
         )
 
-        response = telegraph.create_page(
-            title=title,
-            author_name=author,
-            html_content=page_content
-        )
-
-        telegraph_url = response['url']
-        published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
+        try:
+            response = telegraph.create_page(
+                title=title,
+                author_name=author,
+                html_content=page_content
+            )
+            telegraph_url = response['url']
+            published_stories[chat_id] = {'title': title, 'author': author, 'telegraph_url': telegraph_url}
+        except Exception as e:
+            logger.error(f"Error creating Telegraph page: {e}")
 
 @app.on_inline_query()
 async def inline_query_handler(_, inline_query):
@@ -156,5 +164,22 @@ async def inline_query_handler(_, inline_query):
 
     await inline_query.answer(results)
 
+# Handle errors and exceptions
+@app.on_error()
+async def error_handler(_, error):
+    logger.error(f"An error occurred: {error}")
+
 # Start the Pyrogram client
-app.run()
+async def main():
+    try:
+        await app.start()
+        logger.info("Bot started successfully!")
+    except Exception as e:
+        logger.error(f"Error starting the bot: {e}")
+        exit()
+
+    await app.idle()
+
+if __name__ == "__main__":
+    # Run the main coroutine
+    app.loop.run_until_complete(main())

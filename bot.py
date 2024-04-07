@@ -2,7 +2,6 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from telegraph import Telegraph
 import uuid
-from Config import API_ID, API_HASH, BOT_TOKEN
 # Initialize your Pyrogram client with your credentials
 app = Client(
     "my_bot",

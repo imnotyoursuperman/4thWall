@@ -40,7 +40,8 @@ async def start_command(_, message: Message):
             photo=welcome_photo_url,
             caption="Welcome back, dear owner! How can I assist you today?",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Create a new story", callback_data="new_story")]
+                [InlineKeyboardButton("Create a new story", callback_data="new_story")],
+                [InlineKeyboardButton("ℹ️ About", callback_data="about"), InlineKeyboardButton("❓ Help", callback_data="help")]
             ])
         )
     else:
@@ -49,7 +50,8 @@ async def start_command(_, message: Message):
             caption="Welcome to the Story Bot! Let's create and read amazing stories together.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Start a new story", callback_data="new_story")],
-                [InlineKeyboardButton("Read published stories", switch_inline_query_current_chat="")]
+                [InlineKeyboardButton("Read published stories", switch_inline_query_current_chat="")],
+                [InlineKeyboardButton("ℹ️ About", callback_data="about"), InlineKeyboardButton("❓ Help", callback_data="help")]
             ])
         )
 
@@ -68,6 +70,31 @@ async def callback_handler(_, callback_query):
                                     "4. Genre\n"
                                     "5. Tags (comma-separated)\n"
                                     "6. Summary")
+
+    elif data == "help":
+        await callback_query.answer()
+        await app.send_message(chat_id, "Welcome to Story Bot!\n"
+                                         "Commands available:\n"
+                                         "/start - Start the bot\n"
+                                         "/new_story - Create a new story\n"
+                                         "/addchapter - Add a chapter to your story\n"
+                                         "/publish - Publish your story\n"
+                                         "/help - Show available commands\n"
+                                         "/about - Show bot information and tips")
+
+    elif data == "about":
+        await callback_query.answer()
+        about_text = (
+            "Story Bot - Create and read stories!\n"
+            "Features:\n"
+            "- Create custom stories with cover art, title, genre, tags, and summary\n"
+            "- Add chapters to your stories\n"
+            "- Publish and share your stories with others\n"
+            "- Read published stories via inline queries\n"
+            "- Stories are presented using Telegraph instant view\n"
+            "Enjoy storytelling with Story Bot!"
+        )
+        await app.send_message(chat_id, about_text)
 
 @app.on_message(filters.text & ~filters.command("start"))
 async def handle_text_message(_, message: Message):
@@ -162,54 +189,6 @@ async def create_telegraph_page(chat_id):
             await app.send_message(chat_id, f"Your story has been published! Read it here: {telegraph_url}")
         except Exception as e:
             logger.error(f"Error creating Telegraph page: {e}")
-
-@app.on_inline_query()
-async def inline_query_handler(_, inline_query):
-    results = []
-
-    for chat_id, story in published_stories.items():
-        if story['telegraph_url']:
-            title = story['title']
-            author = story['author']
-            description = f"by {author}"
-            input_content = f"Read the story on Telegraph: {story['telegraph_url']}"
-            results.append(
-                InlineQueryResultArticle(
-                    title=title,
-                    description=description,
-                    input_message_content=InputTextMessageContent(input_content)
-                )
-            )
-
-    await inline_query.answer(results)
-
-@app.on_message(filters.command("help"))
-async def help_command(_, message: Message):
-    help_text = (
-        "Welcome to Story Bot!\n"
-        "Commands available:\n"
-        "/start - Start the bot\n"
-        "/newstory - Create a new story\n"
-        "/addchapter - Add a chapter to your story\n"
-        "/publish - Publish your story\n"
-        "/help - Show available commands\n"
-        "/about - Show bot information and tips"
-    )
-    await message.reply_text(help_text)
-
-@app.on_message(filters.command("about"))
-async def about_command(_, message: Message):
-    about_text = (
-        "Story Bot - Create and read stories!\n"
-        "Features:\n"
-        "- Create custom stories with cover art, title, genre, tags, and summary\n"
-        "- Add chapters to your stories\n"
-        "- Publish and share your stories with others\n"
-        "- Read published stories via inline queries\n"
-        "- Stories are presented using Telegraph instant view\n"
-        "Enjoy storytelling with Story Bot!"
-    )
-    await message.reply_text(about_text)
 
 def validate_url(url):
     # Regular expression pattern to validate URL format

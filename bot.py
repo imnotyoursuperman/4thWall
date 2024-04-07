@@ -15,7 +15,7 @@ app = Client(
 owner_id = 2064735436  # Replace with your Telegram user ID
 
 # Welcome message photo URL
-welcome_photo_url = "https://github.com/imnotyoursuperman/databasepics/blob/main/IMG_20240406_224853_664.png"  # Replace with your welcome photo URL
+welcome_photo_url = "https://raw.githubusercontent.com/imnotyoursuperman/databasepics/main/IMG_20240406_224853_664.png"  # Replace with your welcome photo URL
 
 # Initialize Telegraph
 telegraph = Telegraph()

@@ -1,4 +1,5 @@
 import logging
+import re
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle, InputTextMessageContent
 from telegraph import Telegraph
@@ -82,8 +83,12 @@ async def handle_text_message(_, message: Message):
             story['author'] = message.text
             await message.reply_text("Author's name set successfully! Please provide the cover art URL.")
         elif story['cover_art'] is None:
-            story['cover_art'] = message.text
-            await message.reply_text("Cover art URL set successfully! Please specify the genre of the story.")
+            cover_art_url = message.text.strip()
+            if validate_url(cover_art_url):
+                story['cover_art'] = cover_art_url
+                await message.reply_text("Cover art URL set successfully! Please specify the genre of the story.")
+            else:
+                await message.reply_text("Invalid URL format. Please provide a valid cover art URL.")
         elif story['genre'] is None:
             story['genre'] = message.text
             await message.reply_text("Genre set successfully! Please enter the tags (comma-separated).")
@@ -177,6 +182,39 @@ async def inline_query_handler(_, inline_query):
             )
 
     await inline_query.answer(results)
+
+@app.on_message(filters.command("help"))
+async def help_command(_, message: Message):
+    help_text = (
+        "Welcome to Story Bot!\n"
+        "Commands available:\n"
+        "/start - Start the bot\n"
+        "/newstory - Create a new story\n"
+        "/addchapter - Add a chapter to your story\n"
+        "/publish - Publish your story\n"
+        "/help - Show available commands\n"
+        "/about - Show bot information and tips"
+    )
+    await message.reply_text(help_text)
+
+@app.on_message(filters.command("about"))
+async def about_command(_, message: Message):
+    about_text = (
+        "Story Bot - Create and read stories!\n"
+        "Features:\n"
+        "- Create custom stories with cover art, title, genre, tags, and summary\n"
+        "- Add chapters to your stories\n"
+        "- Publish and share your stories with others\n"
+        "- Read published stories via inline queries\n"
+        "- Stories are presented using Telegraph instant view\n"
+        "Enjoy storytelling with Story Bot!"
+    )
+    await message.reply_text(about_text)
+
+def validate_url(url):
+    # Regular expression pattern to validate URL format
+    url_pattern = re.compile(r"https?://\S+")
+    return bool(re.match(url_pattern, url))
 
 # Start the Pyrogram client
 if __name__ == "__main__":
